@@ -9,6 +9,20 @@ namespace DotNetMcp.Tools;
 [McpServerToolType]
 public static partial class BuildTools
 {
+    [McpServerTool(Name = "dotnet_restore"), Description("Restore NuGet packages for a solution or project")]
+    public static async Task<string> Restore(
+        DotNetCliService cli,
+        [Description("Path to solution or project file, or directory containing one")] string? project_path = null)
+    {
+        var args = new StringBuilder("restore");
+
+        if (!string.IsNullOrEmpty(project_path))
+            args.Append($" \"{project_path}\"");
+
+        var result = await cli.RunAsync(args.ToString());
+        return FormatRestoreResult(result);
+    }
+
     [McpServerTool(Name = "dotnet_build"), Description("Build a .NET solution or project")]
     public static async Task<string> Build(
         DotNetCliService cli,
@@ -31,6 +45,42 @@ public static partial class BuildTools
 
         var result = await cli.RunAsync(args.ToString());
         return FormatBuildResult(result);
+    }
+
+    private static string FormatRestoreResult(CliResult result)
+    {
+        if (result.TimedOut)
+            return "RESTORE TIMED OUT\n\nPartial output:\n" + TruncateOutput(result.Stdout);
+
+        var sb = new StringBuilder();
+        sb.AppendLine(result.ExitCode == 0 ? "RESTORE SUCCEEDED" : "RESTORE FAILED");
+        sb.AppendLine();
+
+        if (result.ExitCode != 0)
+        {
+            // Parse NuGet-specific errors (e.g., NU1101, NU1301)
+            var errors = ParseDiagnostics(result.Stdout, "error");
+            if (errors.Count > 0)
+            {
+                sb.AppendLine($"Errors ({errors.Count}):");
+                foreach (var e in errors)
+                    sb.AppendLine($"  {e}");
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine("Raw output:");
+                sb.AppendLine(TruncateOutput(result.Stdout));
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Stderr))
+        {
+            sb.AppendLine("Stderr:");
+            sb.AppendLine(TruncateOutput(result.Stderr));
+        }
+
+        return sb.ToString().TrimEnd();
     }
 
     private static string FormatBuildResult(CliResult result)

@@ -114,7 +114,7 @@ public sealed class DotNetCliService
 
         // Ensure dotnet is on PATH
         var dotnetDir = Path.GetDirectoryName(GetDotnetPath());
-        if (dotnetDir is not null && psi.Environment.TryGetValue("PATH", out var currentPath))
+        if (dotnetDir is not null && psi.Environment.TryGetValue("PATH", out var currentPath) && currentPath is not null)
         {
             if (!currentPath.Contains(dotnetDir, StringComparison.OrdinalIgnoreCase))
                 psi.Environment["PATH"] = dotnetDir + ";" + currentPath;
