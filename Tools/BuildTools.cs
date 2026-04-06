@@ -16,6 +16,7 @@ public static partial class BuildTools
     {
         var args = new StringBuilder("restore");
 
+        project_path = DotNetCliService.SanitizePath(project_path);
         if (!string.IsNullOrEmpty(project_path))
             args.Append($" \"{project_path}\"");
 
@@ -32,6 +33,7 @@ public static partial class BuildTools
     {
         var args = new StringBuilder("build");
 
+        project_path = DotNetCliService.SanitizePath(project_path);
         if (!string.IsNullOrEmpty(project_path))
             args.Append($" \"{project_path}\"");
 

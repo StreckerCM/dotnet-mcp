@@ -16,6 +16,7 @@ public static class ProjectTools
     {
         var args = new StringBuilder("clean");
 
+        project_path = DotNetCliService.SanitizePath(project_path);
         if (!string.IsNullOrEmpty(project_path))
             args.Append($" \"{project_path}\"");
 
@@ -39,6 +40,7 @@ public static class ProjectTools
     {
         var cmdArgs = new StringBuilder("run");
 
+        project_path = DotNetCliService.SanitizePath(project_path);
         if (!string.IsNullOrEmpty(project_path))
             cmdArgs.Append($" --project \"{project_path}\"");
 
@@ -81,6 +83,7 @@ public static class ProjectTools
     {
         var args = new StringBuilder("format");
 
+        project_path = DotNetCliService.SanitizePath(project_path);
         if (!string.IsNullOrEmpty(project_path))
             args.Append($" \"{project_path}\"");
 
@@ -112,6 +115,7 @@ public static class ProjectTools
     {
         var args = new StringBuilder("publish");
 
+        project_path = DotNetCliService.SanitizePath(project_path);
         if (!string.IsNullOrEmpty(project_path))
             args.Append($" \"{project_path}\"");
 
@@ -120,6 +124,7 @@ public static class ProjectTools
         if (!string.IsNullOrEmpty(runtime))
             args.Append($" -r {runtime}");
 
+        output = DotNetCliService.SanitizePath(output);
         if (!string.IsNullOrEmpty(output))
             args.Append($" -o \"{output}\"");
 

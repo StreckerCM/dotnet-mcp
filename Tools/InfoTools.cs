@@ -54,6 +54,7 @@ public static class InfoTools
         DotNetCliService cli,
         [Description("Path to .sln file")] string solution_path)
     {
+        solution_path = DotNetCliService.SanitizePath(solution_path);
         var result = await cli.RunAsync($"sln \"{solution_path}\" list");
 
         if (result.ExitCode != 0)

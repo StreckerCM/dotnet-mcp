@@ -11,6 +11,7 @@ public sealed class DotNetCliService
         string arguments,
         string? workingDirectory = null,
         TimeSpan? timeout = null,
+        Dictionary<string, string>? environmentOverrides = null,
         CancellationToken cancellationToken = default)
     {
         var psi = new ProcessStartInfo
@@ -28,6 +29,13 @@ public sealed class DotNetCliService
         // Claude Code's sandbox strips critical environment variables.
         // Restore them from the Windows API so dotnet restore/build/test work.
         EnsureEnvironment(psi);
+
+        // Apply caller-provided env vars (e.g. secrets that shouldn't be on the command line)
+        if (environmentOverrides is not null)
+        {
+            foreach (var (key, value) in environmentOverrides)
+                psi.Environment[key] = value;
+        }
 
         using var process = new Process { StartInfo = psi };
         var stdout = new StringBuilder();
@@ -56,15 +64,27 @@ public sealed class DotNetCliService
         try
         {
             await process.WaitForExitAsync(timeoutCts.Token);
+            // Flush buffered stdout/stderr — WaitForExitAsync returns when the
+            // process exits, but the async pipe readers may still be draining.
+            process.WaitForExit();
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
             TryKillProcess(process);
-            return new CliResult(
-                ExitCode: -1,
-                Stdout: stdout.ToString(),
-                Stderr: stderr.ToString(),
-                TimedOut: true);
+
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                // Internal timeout
+                return new CliResult(
+                    ExitCode: -1,
+                    Stdout: stdout.ToString(),
+                    Stderr: stderr.ToString(),
+                    TimedOut: true);
+            }
+
+            // Caller cancellation (e.g. MCP server shutting down) — child is
+            // killed above, now let the cancellation propagate normally.
+            throw;
         }
 
         return new CliResult(
@@ -151,13 +171,32 @@ public sealed class DotNetCliService
         {
             SetIfMissing(psi, "DOTNET_ROOT", dotnetDir);
 
-            // Ensure dotnet is on PATH
-            if (psi.Environment.TryGetValue("PATH", out var currentPath) && currentPath is not null)
+            // Ensure dotnet is on PATH (PATH itself may be absent in a stripped sandbox)
+            psi.Environment.TryGetValue("PATH", out var currentPath);
+            if (string.IsNullOrEmpty(currentPath))
             {
-                if (!currentPath.Contains(dotnetDir, StringComparison.OrdinalIgnoreCase))
-                    psi.Environment["PATH"] = dotnetDir + ";" + currentPath;
+                // Build a minimal PATH so child processes (MSBuild, NuGet) can find system tools
+                var system32 = Path.Combine(winDir ?? @"C:\Windows", "System32");
+                psi.Environment["PATH"] = dotnetDir + ";" + system32;
+            }
+            else if (!currentPath.Contains(dotnetDir, StringComparison.OrdinalIgnoreCase))
+            {
+                psi.Environment["PATH"] = dotnetDir + ";" + currentPath;
             }
         }
+    }
+
+    /// <summary>
+    /// Strip characters that could break out of quoted CLI arguments.
+    /// Since UseShellExecute=false, CreateProcess is called directly (no cmd.exe),
+    /// but the target program's CRT argument parser still splits on unbalanced quotes.
+    /// </summary>
+    public static string SanitizePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+        // Remove double quotes (argument delimiter escape) and null bytes
+        return path.Replace("\"", "").Replace("\0", "");
     }
 
     private static void SetIfMissing(ProcessStartInfo psi, string envVar, string value)

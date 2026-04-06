@@ -19,6 +19,7 @@ public static partial class TestTools
     {
         var args = new StringBuilder("test");
 
+        project_path = DotNetCliService.SanitizePath(project_path);
         if (!string.IsNullOrEmpty(project_path))
             args.Append($" \"{project_path}\"");
 
