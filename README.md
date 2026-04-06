@@ -21,11 +21,33 @@ dotnet-mcp.exe (native Windows process, full environment)
 
 ## Tools
 
+### Core
+
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
-| `dotnet_info` | Verify the server is alive | (none) |
+| `dotnet_info` | Get SDK/runtime version info | (none) |
+| `dotnet_restore` | Restore NuGet packages | `project_path` |
 | `dotnet_build` | Build a solution or project | `project_path`, `configuration`, `no_restore` |
 | `dotnet_test` | Run tests with structured results | `project_path`, `configuration`, `filter`, `no_build` |
+
+### Package Management
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `dotnet_add_package` | Add a NuGet package | `project_path`, `package_name`, `version` |
+| `dotnet_remove_package` | Remove a NuGet package | `project_path`, `package_name` |
+| `dotnet_list_packages` | List installed packages | `project_path`, `outdated` |
+| `dotnet_nuget_push` | Push a package to a feed | `package_path`, `source`, `api_key` |
+
+### Project Operations
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `dotnet_clean` | Clean build outputs | `project_path`, `configuration` |
+| `dotnet_run` | Run a project | `project_path`, `args`, `configuration` |
+| `dotnet_format` | Format code | `project_path`, `verify_no_changes` |
+| `dotnet_publish` | Publish for deployment | `project_path`, `configuration`, `runtime`, `output` |
+| `dotnet_sln_list` | List projects in a solution | `solution_path` |
 
 Build errors/warnings and test results are parsed into structured output so Claude can act on them without parsing raw CLI noise.
 
