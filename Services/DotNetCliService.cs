@@ -20,6 +20,7 @@ public sealed class DotNetCliService
             WorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory(),
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
@@ -44,6 +45,7 @@ public sealed class DotNetCliService
         };
 
         process.Start();
+        process.StandardInput.Close(); // EOF so child doesn't block reading MCP's stdin pipe
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
@@ -91,7 +93,8 @@ public sealed class DotNetCliService
 
         foreach (var (envVar, folder) in folderMappings)
         {
-            if (string.IsNullOrEmpty(psi.Environment[envVar]))
+            psi.Environment.TryGetValue(envVar, out var existing);
+            if (string.IsNullOrEmpty(existing))
             {
                 var path = Environment.GetFolderPath(folder);
                 if (!string.IsNullOrEmpty(path))
@@ -106,14 +109,16 @@ public sealed class DotNetCliService
         }
 
         // ProgramFiles(x86) and CommonProgramFiles(x86) have no simple SpecialFolder enum
-        if (string.IsNullOrEmpty(psi.Environment["ProgramFiles(x86)"]))
+        psi.Environment.TryGetValue("ProgramFiles(x86)", out var pfx86);
+        if (string.IsNullOrEmpty(pfx86))
         {
             var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
             if (!string.IsNullOrEmpty(pf))
                 psi.Environment["ProgramFiles(x86)"] = pf;
         }
 
-        if (string.IsNullOrEmpty(psi.Environment["CommonProgramFiles(x86)"]))
+        psi.Environment.TryGetValue("CommonProgramFiles(x86)", out var cpfx86);
+        if (string.IsNullOrEmpty(cpfx86))
         {
             var cpf = Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFilesX86);
             if (!string.IsNullOrEmpty(cpf))
@@ -157,7 +162,8 @@ public sealed class DotNetCliService
 
     private static void SetIfMissing(ProcessStartInfo psi, string envVar, string value)
     {
-        if (string.IsNullOrEmpty(psi.Environment[envVar]))
+        psi.Environment.TryGetValue(envVar, out var existing);
+        if (string.IsNullOrEmpty(existing))
             psi.Environment[envVar] = value;
     }
 
