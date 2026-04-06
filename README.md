@@ -48,6 +48,7 @@ dotnet-mcp.exe (native Windows process, full environment)
 | `dotnet_format` | Format code | `project_path`, `verify_no_changes` |
 | `dotnet_publish` | Publish for deployment | `project_path`, `configuration`, `runtime`, `output` |
 | `dotnet_sln_list` | List projects in a solution | `solution_path` |
+| `dotnet_sdk_pin` | Pin/read/remove SDK version via global.json | `action`, `directory`, `sdk_version`, `roll_forward` |
 
 Build errors/warnings and test results are parsed into structured output so Claude can act on them without parsing raw CLI noise.
 
@@ -123,6 +124,15 @@ If it returns build results instead of a sandbox error, the server is working.
 
 **Run filtered tests:**
 > Run only the tests matching "Minimum_Curvature" in the survey test project
+
+**Pin to an older SDK (when SDK 10 causes issues):**
+> Pin the DownholePro directory to SDK 8.0 and rebuild
+
+**Check current SDK pin:**
+> What SDK version is pinned for the DownholePro project?
+
+**Remove SDK pin:**
+> Remove the SDK pin from DownholePro so it uses the default again
 
 ## How It Works
 
