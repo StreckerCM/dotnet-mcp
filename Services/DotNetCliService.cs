@@ -15,7 +15,7 @@ public sealed class DotNetCliService
     {
         var psi = new ProcessStartInfo
         {
-            FileName = "dotnet",
+            FileName = GetDotnetPath(),
             Arguments = arguments,
             WorkingDirectory = workingDirectory ?? Directory.GetCurrentDirectory(),
             RedirectStandardOutput = true,
@@ -77,7 +77,7 @@ public sealed class DotNetCliService
         // Map Windows special folders to the env vars that dotnet/NuGet/MSBuild expect.
         // Environment.GetFolderPath reads from the Windows API, not env vars,
         // so it works even when the shell environment is stripped.
-        var required = new (string EnvVar, Environment.SpecialFolder Folder)[]
+        var folderMappings = new (string EnvVar, Environment.SpecialFolder Folder)[]
         {
             ("ProgramData",      Environment.SpecialFolder.CommonApplicationData),
             ("ProgramFiles",     Environment.SpecialFolder.ProgramFiles),
@@ -86,9 +86,10 @@ public sealed class DotNetCliService
             ("USERPROFILE",      Environment.SpecialFolder.UserProfile),
             ("TEMP",             Environment.SpecialFolder.LocalApplicationData),
             ("TMP",              Environment.SpecialFolder.LocalApplicationData),
+            ("CommonProgramFiles", Environment.SpecialFolder.CommonProgramFiles),
         };
 
-        foreach (var (envVar, folder) in required)
+        foreach (var (envVar, folder) in folderMappings)
         {
             if (string.IsNullOrEmpty(psi.Environment[envVar]))
             {
@@ -104,7 +105,7 @@ public sealed class DotNetCliService
             }
         }
 
-        // ProgramFiles(x86) has no SpecialFolder enum — derive from ProgramFiles
+        // ProgramFiles(x86) and CommonProgramFiles(x86) have no simple SpecialFolder enum
         if (string.IsNullOrEmpty(psi.Environment["ProgramFiles(x86)"]))
         {
             var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
@@ -112,13 +113,52 @@ public sealed class DotNetCliService
                 psi.Environment["ProgramFiles(x86)"] = pf;
         }
 
-        // Ensure dotnet is on PATH
-        var dotnetDir = Path.GetDirectoryName(GetDotnetPath());
-        if (dotnetDir is not null && psi.Environment.TryGetValue("PATH", out var currentPath) && currentPath is not null)
+        if (string.IsNullOrEmpty(psi.Environment["CommonProgramFiles(x86)"]))
         {
-            if (!currentPath.Contains(dotnetDir, StringComparison.OrdinalIgnoreCase))
-                psi.Environment["PATH"] = dotnetDir + ";" + currentPath;
+            var cpf = Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFilesX86);
+            if (!string.IsNullOrEmpty(cpf))
+                psi.Environment["CommonProgramFiles(x86)"] = cpf;
         }
+
+        // System-level env vars that .NET SDK, MSBuild, and workload resolution depend on.
+        // These have no SpecialFolder equivalent — derive from the Windows directory.
+        var winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (!string.IsNullOrEmpty(winDir))
+        {
+            SetIfMissing(psi, "SystemRoot", winDir);
+            SetIfMissing(psi, "windir", winDir);
+            SetIfMissing(psi, "SystemDrive", Path.GetPathRoot(winDir)?.TrimEnd('\\') ?? "C:");
+        }
+
+        // HOME / HOMEDRIVE / HOMEPATH — many .NET tools and NuGet use these
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrEmpty(userProfile))
+        {
+            SetIfMissing(psi, "HOME", userProfile);
+            SetIfMissing(psi, "HOMEDRIVE", Path.GetPathRoot(userProfile)?.TrimEnd('\\') ?? "C:");
+            SetIfMissing(psi, "HOMEPATH", userProfile.Substring(Path.GetPathRoot(userProfile)?.Length ?? 0));
+        }
+
+        // DOTNET_ROOT — tells the SDK where to find itself (runtimes, workloads, etc.)
+        var dotnetPath = GetDotnetPath();
+        var dotnetDir = Path.GetDirectoryName(dotnetPath);
+        if (dotnetDir is not null)
+        {
+            SetIfMissing(psi, "DOTNET_ROOT", dotnetDir);
+
+            // Ensure dotnet is on PATH
+            if (psi.Environment.TryGetValue("PATH", out var currentPath) && currentPath is not null)
+            {
+                if (!currentPath.Contains(dotnetDir, StringComparison.OrdinalIgnoreCase))
+                    psi.Environment["PATH"] = dotnetDir + ";" + currentPath;
+            }
+        }
+    }
+
+    private static void SetIfMissing(ProcessStartInfo psi, string envVar, string value)
+    {
+        if (string.IsNullOrEmpty(psi.Environment[envVar]))
+            psi.Environment[envVar] = value;
     }
 
     private static string GetDotnetPath()

@@ -97,6 +97,8 @@ Add the server to your Claude Code MCP settings. You can configure it at the use
 
 Replace `C:\path\to\dotnet-mcp` with the actual path where you cloned the repo.
 
+> **No `env` block needed.** The server automatically reconstructs all required Windows environment variables (`ProgramData`, `SystemRoot`, `APPDATA`, `TEMP`, `DOTNET_ROOT`, etc.) using Windows APIs (`Environment.GetFolderPath`) before spawning any `dotnet` child process. This works even when Claude Code's sandbox strips the host shell environment.
+
 ### 3. Restart Claude Code
 
 Start a new Claude Code session. The `dotnet_info`, `dotnet_build`, and `dotnet_test` tools will appear in `/mcp`.
@@ -124,9 +126,15 @@ If it returns build results instead of a sandbox error, the server is working.
 
 ## How It Works
 
-Claude Code's Bash tool runs in a sandboxed shell on Windows that strips critical environment variables (notably `ProgramData`). This causes NuGet package resolution to fail with `Value cannot be null. (Parameter 'path1')`.
+Claude Code's sandbox on Windows strips critical environment variables (notably `ProgramData` and `PATH`) from all child processes, including MCP servers. This causes two problems:
 
-MCP servers are spawned as child processes by Claude Code. While they inherit the same stripped environment, this server explicitly reconstructs the required variables using `Environment.GetFolderPath()` — a .NET API that reads from the Windows registry/system APIs rather than environment variables. This ensures `ProgramData`, `APPDATA`, `LOCALAPPDATA`, `USERPROFILE`, `TEMP`, and other critical paths are always correct before spawning `dotnet` CLI commands.
+1. **`dotnet` not on PATH** — The server can't find `dotnet.exe` to spawn child processes. Solved by using the full path (`C:\Program Files\dotnet\dotnet.exe`) resolved via `Environment.GetFolderPath()`, and by providing `PATH` in the `.mcp.json` `env` block as a belt-and-suspenders approach.
+
+2. **Missing Windows paths** — NuGet/MSBuild need `ProgramData`, `APPDATA`, etc. to resolve package caches and temp directories. Solved by reconstructing these from `Environment.GetFolderPath()` (a .NET API that reads from the Windows registry, not environment variables) before spawning each `dotnet` command.
+
+### SDK 10.0 Compatibility
+
+.NET SDK 10.0+ has a known bug where `dotnet --info` crashes with a `NullReferenceException` during workload enumeration. The `dotnet_info` tool avoids this entirely by using `dotnet --version`, `dotnet --list-sdks`, and `dotnet --list-runtimes` instead — individual commands that don't trigger the workload subsystem.
 
 The server communicates with Claude Code over stdin/stdout using the MCP protocol (JSON-RPC 2.0, newline-delimited).
 
