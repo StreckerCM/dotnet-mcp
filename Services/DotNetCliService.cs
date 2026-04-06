@@ -3,11 +3,11 @@ using System.Text;
 
 namespace DotNetMcp.Services;
 
-public sealed class DotNetCliService
+public class DotNetCliService
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(5);
 
-    public async Task<CliResult> RunAsync(
+    public virtual async Task<CliResult> RunAsync(
         string arguments,
         string? workingDirectory = null,
         TimeSpan? timeout = null,
@@ -94,7 +94,7 @@ public sealed class DotNetCliService
             TimedOut: false);
     }
 
-    private static void EnsureEnvironment(ProcessStartInfo psi)
+    internal static void EnsureEnvironment(ProcessStartInfo psi)
     {
         // Map Windows special folders to the env vars that dotnet/NuGet/MSBuild expect.
         // Environment.GetFolderPath reads from the Windows API, not env vars,

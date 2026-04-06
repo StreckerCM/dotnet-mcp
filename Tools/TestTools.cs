@@ -38,7 +38,7 @@ public static partial class TestTools
         return FormatTestResult(result);
     }
 
-    private static string FormatTestResult(CliResult result)
+    internal static string FormatTestResult(CliResult result)
     {
         if (result.TimedOut)
             return "TESTS TIMED OUT\n\nPartial output:\n" + TruncateOutput(result.Stdout);
@@ -90,7 +90,7 @@ public static partial class TestTools
         return sb.ToString().TrimEnd();
     }
 
-    private static List<string> ParseFailedTests(string output)
+    internal static List<string> ParseFailedTests(string output)
     {
         var failed = new List<string>();
         foreach (var line in output.Split('\n'))

@@ -49,7 +49,7 @@ public static partial class BuildTools
         return FormatBuildResult(result);
     }
 
-    private static string FormatRestoreResult(CliResult result)
+    internal static string FormatRestoreResult(CliResult result)
     {
         if (result.TimedOut)
             return "RESTORE TIMED OUT\n\nPartial output:\n" + TruncateOutput(result.Stdout);
@@ -85,7 +85,7 @@ public static partial class BuildTools
         return sb.ToString().TrimEnd();
     }
 
-    private static string FormatBuildResult(CliResult result)
+    internal static string FormatBuildResult(CliResult result)
     {
         if (result.TimedOut)
             return "BUILD TIMED OUT\n\nPartial output:\n" + TruncateOutput(result.Stdout);
@@ -130,7 +130,7 @@ public static partial class BuildTools
         return sb.ToString().TrimEnd();
     }
 
-    private static List<string> ParseDiagnostics(string output, string level)
+    internal static List<string> ParseDiagnostics(string output, string level)
     {
         var diagnostics = new List<string>();
         foreach (var line in output.Split('\n'))

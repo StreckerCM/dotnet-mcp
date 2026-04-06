@@ -144,6 +144,9 @@ The server communicates with Claude Code over stdin/stdout using the MCP protoco
 # Build
 dotnet build -c Release
 
+# Run tests
+dotnet test
+
 # Quick smoke test — send MCP initialize + tools/list
 {
   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}}}'
@@ -152,6 +155,15 @@ dotnet build -c Release
   sleep 2
 } | ./bin/Release/net8.0/dotnet-mcp.exe 2>/dev/null
 ```
+
+### Test Suite
+
+The test project (`tests/dotnet-mcp.Tests`) uses xUnit and NSubstitute with 81 tests covering:
+
+- **SanitizePath** — input sanitization edge cases (quotes, null bytes, whitespace)
+- **Output formatting** — build, restore, and test result parsing (errors, warnings, timeouts, summaries)
+- **Argument construction** — CLI argument assembly for all 15 tools via mocked `DotNetCliService`
+- **EnsureEnvironment** — env var reconstruction logic that fixes the sandbox stripping issue
 
 ## License
 
